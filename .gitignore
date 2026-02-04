@@ -9,6 +9,8 @@ venv/
 node_modules/
 dist/
 .cache/
+.history/
+dados.db
 
 # OS
 .DS_Store

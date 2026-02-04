@@ -1,10 +1,17 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
-ALLOWED_UNITS = {"un", "kg", "g", "mg", "l", "ml"}
+ALLOWED_UNITS = {"un", "kg", "g"}
 
 class ProdutoCriar(BaseModel):
+    codigo: str = Field(..., min_length=1, max_length=50)
     nome: str = Field(..., min_length=1, max_length=200)
     valor: float = Field(..., ge=0.0)
+    @field_validator("codigo")
+    @classmethod
+    def validar_codigo(cls, v: str):
+        if not v.strip():
+            raise ValueError("Código não pode ser vazio")
+        return v
     @field_validator("nome")
     @classmethod
     def validar_nome(cls, v: str):
@@ -32,16 +39,23 @@ class ProdutoEditar(BaseModel):
 
 class ProdutoResposta(BaseModel):
     id: int
-    codigo: int
+    codigo: str
     nome: str
     valor: float
     class Config:
         from_attributes = True
 
 class MateriaPrimaCriar(BaseModel):
+    codigo: str = Field(..., min_length=1, max_length=50)
     nome: str = Field(..., min_length=1, max_length=200)
     quantidade_estoque: float = Field(..., ge=0.0)
     unidade_medida: str
+    @field_validator("codigo")
+    @classmethod
+    def validar_codigo(cls, v: str):
+        if not v.strip():
+            raise ValueError("Código não pode ser vazio")
+        return v
     @field_validator("nome")
     @classmethod
     def validar_nome(cls, v: str):
@@ -86,7 +100,7 @@ class MateriaPrimaEditar(BaseModel):
 
 class MateriaPrimaResposta(BaseModel):
     id: int
-    codigo: int
+    codigo: str
     nome: str
     quantidade_estoque: float
     unidade_medida: str
@@ -137,7 +151,7 @@ class AssociacaoResposta(BaseModel):
 
 class ProducaoItem(BaseModel):
     produto_id: int
-    codigo: int
+    codigo: str
     nome: str
     quantidade: int
     valor_unitario: float

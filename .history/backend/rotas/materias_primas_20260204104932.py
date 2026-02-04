@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-import unicodedata
 from ..banco import SessaoLocal
 from ..modelos import MateriaPrima
 from ..esquemas import MateriaPrimaCriar, MateriaPrimaEditar, MateriaPrimaResposta
@@ -23,13 +21,10 @@ def listar_materias(sessao: Session = Depends(obter_sessao)):
 @roteador.post("", response_model=MateriaPrimaResposta, status_code=201)
 def criar_materia(dados: MateriaPrimaCriar, sessao: Session = Depends(obter_sessao)):
     try:
-        def norm(s):
-            return "".join(c for c in unicodedata.normalize("NFKD", s).lower() if not unicodedata.combining(c))
-        nomes = [n for (n,) in sessao.query(MateriaPrima.nome).all()]
-        if any(norm(n) == norm(dados.nome) for n in nomes):
-            raise HTTPException(status_code=400, detail="Nome já cadastrado")
-        proximo = (sessao.query(func.max(MateriaPrima.codigo)).scalar() or 0) + 1
-        nova = MateriaPrima(codigo=proximo, nome=dados.nome, quantidade_estoque=dados.quantidade_estoque, unidade_medida=dados.unidade_medida)
+        existente = sessao.query(MateriaPrima).filter(MateriaPrima.codigo == dados.codigo).first()
+        if existente:
+            raise HTTPException(status_code=400, detail="Código já cadastrado")
+        nova = MateriaPrima(codigo=dados.codigo, nome=dados.nome, quantidade_estoque=dados.quantidade_estoque, unidade_medida=dados.unidade_medida)
         sessao.add(nova)
         sessao.commit()
         sessao.refresh(nova)
@@ -54,12 +49,6 @@ def editar_materia(materia_id: int, dados: MateriaPrimaEditar, sessao: Session =
         if not materia:
             raise HTTPException(status_code=404, detail="Matéria-prima não encontrada")
         if dados.nome is not None:
-            import unicodedata as u
-            def norm(s):
-                return "".join(c for c in u.normalize("NFKD", s).lower() if not u.combining(c))
-            nomes = [n for (n,) in sessao.query(MateriaPrima.nome).all() if n != materia.nome]
-            if any(norm(n) == norm(dados.nome) for n in nomes):
-                raise HTTPException(status_code=400, detail="Nome já cadastrado")
             materia.nome = dados.nome
         if dados.quantidade_estoque is not None:
             materia.quantidade_estoque = dados.quantidade_estoque

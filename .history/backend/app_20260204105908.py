@@ -60,42 +60,5 @@ try:
             con.exec_driver_sql("DROP TABLE produtos_materias_primas")
             con.exec_driver_sql("ALTER TABLE _tmp_produtos_materias_primas RENAME TO produtos_materias_primas")
             con.commit()
-        cols_prod = con.exec_driver_sql("PRAGMA table_info('produtos')").fetchall()
-        tipos_prod = {r[1]: r[2].upper() for r in cols_prod}
-        if tipos_prod.get("codigo", "") in ("TEXT", "VARCHAR(50)"):
-            con.exec_driver_sql("""
-                CREATE TABLE IF NOT EXISTS _tmp_produtos (
-                    id INTEGER PRIMARY KEY,
-                    codigo INTEGER UNIQUE NOT NULL,
-                    nome VARCHAR(200) NOT NULL,
-                    valor FLOAT NOT NULL
-                )
-            """)
-            con.exec_driver_sql("""
-                INSERT INTO _tmp_produtos (id, codigo, nome, valor)
-                SELECT id, id, nome, valor FROM produtos
-            """)
-            con.exec_driver_sql("DROP TABLE produtos")
-            con.exec_driver_sql("ALTER TABLE _tmp_produtos RENAME TO produtos")
-            con.commit()
-        cols_mat = con.exec_driver_sql("PRAGMA table_info('materias_primas')").fetchall()
-        tipos_mat = {r[1]: r[2].upper() for r in cols_mat}
-        if tipos_mat.get("codigo", "") in ("TEXT", "VARCHAR(50)"):
-            con.exec_driver_sql("""
-                CREATE TABLE IF NOT EXISTS _tmp_materias_primas (
-                    id INTEGER PRIMARY KEY,
-                    codigo INTEGER UNIQUE NOT NULL,
-                    nome VARCHAR(200) NOT NULL,
-                    quantidade_estoque NUMERIC(14,2) NOT NULL,
-                    unidade_medida VARCHAR(10) NOT NULL
-                )
-            """)
-            con.exec_driver_sql("""
-                INSERT INTO _tmp_materias_primas (id, codigo, nome, quantidade_estoque, unidade_medida)
-                SELECT id, id, nome, quantidade_estoque, COALESCE(unidade_medida, 'un') FROM materias_primas
-            """)
-            con.exec_driver_sql("DROP TABLE materias_primas")
-            con.exec_driver_sql("ALTER TABLE _tmp_materias_primas RENAME TO materias_primas")
-            con.commit()
 except Exception:
     pass

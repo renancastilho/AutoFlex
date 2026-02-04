@@ -3,22 +3,17 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.env
+
+# Node/Frontend
+node_modules/
+dist/
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
 
 # IDE
 .vscode/
 .idea/
-
-# Logs
-*.log
-
-# Banco local
-*.sqlite
-*.sqlite3
-*.db
-c:/Users/Renan de Castilho/Desktop/AutoFlex/dados.db
-
-# Node/Front
-node_modules/
-
-# Env
-.env

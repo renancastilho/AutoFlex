@@ -16,19 +16,14 @@ function parse_decimal_pt(valor_str) {
 
 const mapa_materias = new Map()
 const mapa_produtos = new Map()
-let materiasReqId = 0
 
 async function carregar_produtos() {
     const r = await fetch(api.produtos)
     const itens = await r.json()
     const lista = document.getElementById('lista-produtos')
     const select = document.getElementById('produto-selecionado')
-    const filtroMaterias = document.getElementById('produto-filtro-materias')
-    const drop = document.getElementById('produtos-lista')
     lista.innerHTML = ''
     select.innerHTML = ''
-    if (filtroMaterias) filtroMaterias.innerHTML = ''
-    if (drop) drop.innerHTML = ''
     mapa_produtos.clear()
     itens.forEach(p => {
         mapa_produtos.set(p.id, p)
@@ -42,71 +37,34 @@ async function carregar_produtos() {
         lista.appendChild(div)
         const opt = document.createElement('option')
         opt.value = p.id
-        opt.textContent = `ID ${p.id} - ${p.nome} - ${formato_brl.format(p.valor)}`
+        opt.textContent = `${p.codigo} - ${p.nome}`
         select.appendChild(opt)
-        if (filtroMaterias) {
-            const opt2 = document.createElement('option')
-            opt2.value = p.id
-            opt2.textContent = `ID ${p.id} - ${p.nome} - ${formato_brl.format(p.valor)}`
-            filtroMaterias.appendChild(opt2)
-        }
-        if (drop) {
-            const dopt = document.createElement('option')
-            dopt.value = p.id
-            dopt.textContent = `ID ${p.id} - ${p.nome} - ${formato_brl.format(p.valor)}`
-            drop.appendChild(dopt)
-        }
     })
-    if (itens.length > 0) {
-        const firstId = itens[0].id
-        if (select) select.value = firstId
-        if (filtroMaterias) filtroMaterias.value = firstId
-        if (drop) drop.value = firstId
-        carregar_ingredientes()
-        carregar_materias()
-    }
 }
 
 async function carregar_materias() {
-    const rid = ++materiasReqId
     const r = await fetch(api.materias)
     const itens = await r.json()
-    if (rid !== materiasReqId) return
     const lista = document.getElementById('lista-materias')
     const select = document.getElementById('materia-selecionada')
     lista.innerHTML = ''
     select.innerHTML = ''
     mapa_materias.clear()
-  // ids associados ao produto selecionado (para filtrar apresentação)
-  const produtoSelecionado = document.getElementById('produto-filtro-materias')?.value
-  let idsAssociados = null
-  if (produtoSelecionado) {
-    try {
-      const rAssoc = await fetch(`${api.associacoes}/produto/${produtoSelecionado}`)
-      const assoc = await rAssoc.json()
-      idsAssociados = new Set(assoc.map(a => a.materia_prima_id))
-    } catch {}
-  }
-  const addedSelect = new Set()
-  const seen = new Set()
-  itens.forEach(m => {
-        if (seen.has(m.id)) return
-        seen.add(m.id)
+    itens.forEach(m => {
         mapa_materias.set(m.id, m)
         const div = document.createElement('div')
         div.className = 'item'
         const qtd = Number(m.quantidade_estoque)
-    div.innerHTML = `<div><b>${m.codigo}</b> ${m.nome} - estoque: ${qtd.toFixed(2)} ${m.unidade_medida}</div><div><button class="secondary" data-id="${m.id}" data-acao="editar">Editar</button><button data-id="${m.id}" data-acao="excluir">Excluir</button></div>`
-    lista.appendChild(div)
-    const opt = document.createElement('option')
-    opt.value = m.id
-    opt.textContent = `ID ${m.id} - ${m.nome}`
-    if (!idsAssociados || !idsAssociados.has(m.id)) {
-      if (!addedSelect.has(m.id)) {
+        div.innerHTML = `<div><b>${m.codigo}</b> ${m.nome} - estoque: ${qtd.toFixed(2)} ${m.unidade_medida}</div>
+      <div>
+        <button class="secondary" data-id="${m.id}" data-acao="editar">Editar</button>
+        <button data-id="${m.id}" data-acao="excluir">Excluir</button>
+      </div>`
+        lista.appendChild(div)
+        const opt = document.createElement('option')
+        opt.value = m.id
+        opt.textContent = `${m.codigo} - ${m.nome}`
         select.appendChild(opt)
-        addedSelect.add(m.id)
-      }
-    }
     })
 }
 
@@ -117,13 +75,6 @@ async function carregar_ingredientes() {
     const itens = await r.json()
     const lista = document.getElementById('lista-ingredientes')
     lista.innerHTML = ''
-    if (!Array.isArray(itens) || itens.length === 0) {
-        const vazio = document.createElement('div')
-        vazio.className = 'item'
-        vazio.textContent = 'Nenhum ingrediente cadastrado para este produto.'
-        lista.appendChild(vazio)
-        return
-    }
     itens.forEach(a => {
         const div = document.createElement('div')
         div.className = 'item'
@@ -141,54 +92,31 @@ async function carregar_ingredientes() {
 
 async function salvar_produto(e) {
     e.preventDefault()
+    const codigo = document.getElementById('produto-codigo').value.trim()
     const nome = document.getElementById('produto-nome').value.trim()
     const valor = parse_decimal_pt(document.getElementById('produto-valor').value)
-  if (!nome || isNaN(valor)) {
-    alert('Informe um nome e um valor válido (use vírgula para centavos).')
-    return
-  }
-  const r = await fetch(api.produtos, {
+    if (!codigo || !nome || !valor) return
+    await fetch(api.produtos, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, valor })
+        body: JSON.stringify({ codigo, nome, valor })
     })
-  if (!r.ok) {
-    try {
-      const err = await r.json()
-      alert(err.detail || 'Erro ao salvar produto')
-    } catch {
-      alert('Erro ao salvar produto')
-    }
-    return
-  }
     e.target.reset()
-  carregar_produtos()
-  await preencherProdutosDropdown()
+    carregar_produtos()
 }
 
 async function salvar_materia(e) {
     e.preventDefault()
+    const codigo = document.getElementById('materia-codigo').value.trim()
     const nome = document.getElementById('materia-nome').value.trim()
     const quantidade_estoque = parse_decimal_pt(document.getElementById('materia-estoque').value)
     const unidade_medida = document.getElementById('materia-unidade').value
-  if (!nome || isNaN(quantidade_estoque)) {
-    alert('Informe um nome e uma quantidade válida (use vírgula para centavos).')
-    return
-  }
-  const r = await fetch(api.materias, {
+    if (!codigo || !nome || isNaN(quantidade_estoque)) return
+    await fetch(api.materias, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, quantidade_estoque, unidade_medida })
+        body: JSON.stringify({ codigo, nome, quantidade_estoque, unidade_medida })
     })
-  if (!r.ok) {
-    try {
-      const err = await r.json()
-      alert(err.detail || 'Erro ao salvar matéria-prima')
-    } catch {
-      alert('Erro ao salvar matéria-prima')
-    }
-    return
-  }
     e.target.reset()
     carregar_materias()
 }
@@ -198,24 +126,12 @@ async function adicionar_ingrediente() {
     const materia_prima_id = parseInt(document.getElementById('materia-selecionada').value)
     const quantidade_necessaria = parse_decimal_pt(document.getElementById('quantidade-necessaria').value)
     const unidade_medida = document.getElementById('ingrediente-unidade').value
-  if (!produto_id || !materia_prima_id || isNaN(quantidade_necessaria)) {
-    alert('Selecione produto, matéria e informe a quantidade válida.')
-    return
-  }
-  const r = await fetch(`${api.associacoes}/produto/${produto_id}`, {
+    if (!produto_id || !materia_prima_id || isNaN(quantidade_necessaria)) return
+    await fetch(`${api.associacoes}/produto/${produto_id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ materia_prima_id, quantidade_necessaria, unidade_medida })
     })
-  if (!r.ok) {
-    try {
-      const err = await r.json()
-      alert(err.detail || 'Erro ao adicionar ingrediente')
-    } catch {
-      alert('Erro ao adicionar ingrediente')
-    }
-    return
-  }
     document.getElementById('quantidade-necessaria').value = ''
     carregar_ingredientes()
 }
@@ -236,21 +152,11 @@ async function editar_excluir_lista(e) {
         const body = {}
         if (nome) body.nome = nome
         if (valor) body.valor = parse_decimal_pt(valor)
-    const r = await fetch(`${api.produtos}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    if (!r.ok) {
-      try {
-        const err = await r.json()
-        alert(err.detail || 'Erro ao editar produto')
-      } catch {
-        alert('Erro ao editar produto')
-      }
-      return
-    }
+        await fetch(`${api.produtos}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         carregar_produtos()
     }
     if (acao === 'excluir-ingrediente') {
-    const r = await fetch(`${api.associacoes}/${id}`, { method: 'DELETE' })
-    if (!r.ok) alert('Erro ao excluir ingrediente')
+        await fetch(`${api.associacoes}/${id}`, { method: 'DELETE' })
         carregar_ingredientes()
     } else if (acao === 'editar-ingrediente') {
         const quantidade_necessaria = prompt('Nova quantidade necessária (use vírgula para centavos):')
@@ -259,16 +165,7 @@ async function editar_excluir_lista(e) {
         const body = {}
         if (quantidade_necessaria) body.quantidade_necessaria = parse_decimal_pt(quantidade_necessaria)
         if (unidade_medida) body.unidade_medida = unidade_medida
-    const r = await fetch(`${api.associacoes}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    if (!r.ok) {
-      try {
-        const err = await r.json()
-        alert(err.detail || 'Erro ao editar ingrediente')
-      } catch {
-        alert('Erro ao editar ingrediente')
-      }
-      return
-    }
+        await fetch(`${api.associacoes}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
         carregar_ingredientes()
     }
 }
@@ -297,39 +194,18 @@ async function editar_excluir_materias(e) {
 }
 
 async function calcular_producao() {
+    const r = await fetch(api.producao)
+    const dados = await r.json()
     const lista = document.getElementById('lista-producao')
     const total = document.getElementById('valor-total')
     lista.innerHTML = ''
-    const pid = document.getElementById('produto-selecionado')?.value
-    const url = pid ? `${api.producao}?produto_id=${pid}` : api.producao
-    const r = await fetch(url)
-    if (!r.ok) {
-        try {
-            const err = await r.json()
-            alert(err.detail || 'Erro ao calcular produção')
-        } catch {
-            alert('Erro ao calcular produção')
-        }
-        total.textContent = ''
-        return
-    }
-    const dados = await r.json()
-    const itens = Array.isArray(dados && dados.itens) ? dados.itens : []
-    if (itens.length === 0) {
-        const vazio = document.createElement('div')
-        vazio.className = 'item'
-        vazio.textContent = 'Nenhuma produção sugerida.'
-        lista.appendChild(vazio)
-        total.textContent = `Valor total: ${formato_brl.format(0)}`
-    } else {
-        itens.forEach(i => {
-            const div = document.createElement('div')
-            div.className = 'item'
-            div.innerHTML = `<div><b>${i.codigo}</b> ${i.nome} → ${i.quantidade} un</div><div>${formato_brl.format(i.valor_total_item)}</div>`
-            lista.appendChild(div)
-        })
-        total.textContent = `Valor total: ${formato_brl.format(dados.valor_total || 0)}`
-    }
+    dados.itens.forEach(i => {
+        const div = document.createElement('div')
+        div.className = 'item'
+        div.innerHTML = `<div><b>${i.codigo}</b> ${i.nome} → ${i.quantidade} un</div><div>${formato_brl.format(i.valor_total_item)}</div>`
+        lista.appendChild(div)
+    })
+    total.textContent = `Valor total: ${formato_brl.format(dados.valor_total)}`
     carregar_materias()
 }
 
@@ -339,40 +215,6 @@ document.getElementById('btn-adicionar-ingrediente').addEventListener('click', a
 document.getElementById('btn-calcular').addEventListener('click', calcular_producao)
 document.getElementById('lista-produtos').addEventListener('click', editar_excluir_lista)
 document.getElementById('lista-materias').addEventListener('click', editar_excluir_materias)
-document.getElementById('produto-selecionado').addEventListener('change', async () => {
-  await carregar_materias()
-  await carregar_ingredientes()
-})
-
-const filtroMaterias = document.getElementById('produto-filtro-materias')
-if (filtroMaterias) {
-  filtroMaterias.addEventListener('change', carregar_materias)
-}
+document.getElementById('produto-selecionado').addEventListener('change', carregar_ingredientes)
 
 carregar_produtos().then(carregar_materias).then(carregar_ingredientes)
-async function preencherProdutosDropdown() {
-  const r = await fetch(api.produtos)
-  const itens = await r.json()
-  const drop = document.getElementById('produtos-lista')
-  if (!drop) return
-  drop.innerHTML = ''
-  itens.forEach(p => {
-    const dopt = document.createElement('option')
-    dopt.value = p.id
-    dopt.textContent = `ID ${p.id} - ${p.nome}`
-    drop.appendChild(dopt)
-  })
-}
-preencherProdutosDropdown()
-const dropProdutos = document.getElementById('produtos-lista')
-if (dropProdutos) {
-  dropProdutos.addEventListener('change', async () => {
-    const id = dropProdutos.value
-    const selectIngred = document.getElementById('produto-selecionado')
-    const filtroMat = document.getElementById('produto-filtro-materias')
-    if (selectIngred) selectIngred.value = id
-    if (filtroMat) filtroMat.value = id
-    await carregar_materias()
-    await carregar_ingredientes()
-  })
-}

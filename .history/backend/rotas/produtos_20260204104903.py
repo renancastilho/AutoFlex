@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-import unicodedata
 from ..banco import SessaoLocal
 from ..modelos import Produto
 from ..esquemas import ProdutoCriar, ProdutoEditar, ProdutoResposta
@@ -23,13 +21,10 @@ def listar_produtos(sessao: Session = Depends(obter_sessao)):
 @roteador.post("", response_model=ProdutoResposta, status_code=201)
 def criar_produto(dados: ProdutoCriar, sessao: Session = Depends(obter_sessao)):
     try:
-        def norm(s):
-            return "".join(c for c in unicodedata.normalize("NFKD", s).lower() if not unicodedata.combining(c))
-        nomes = [n for (n,) in sessao.query(Produto.nome).all()]
-        if any(norm(n) == norm(dados.nome) for n in nomes):
-            raise HTTPException(status_code=400, detail="Nome já cadastrado")
-        proximo = (sessao.query(func.max(Produto.codigo)).scalar() or 0) + 1
-        novo = Produto(codigo=proximo, nome=dados.nome, valor=dados.valor)
+        existente = sessao.query(Produto).filter(Produto.codigo == dados.codigo).first()
+        if existente:
+            raise HTTPException(status_code=400, detail="Código já cadastrado")
+        novo = Produto(codigo=dados.codigo, nome=dados.nome, valor=dados.valor)
         sessao.add(novo)
         sessao.commit()
         sessao.refresh(novo)
@@ -54,12 +49,6 @@ def editar_produto(produto_id: int, dados: ProdutoEditar, sessao: Session = Depe
         if not produto:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
         if dados.nome is not None:
-            import unicodedata as u
-            def norm(s):
-                return "".join(c for c in u.normalize("NFKD", s).lower() if not u.combining(c))
-            nomes = [n for (n,) in sessao.query(Produto.nome).all() if n != produto.nome]
-            if any(norm(n) == norm(dados.nome) for n in nomes):
-                raise HTTPException(status_code=400, detail="Nome já cadastrado")
             produto.nome = dados.nome
         if dados.valor is not None:
             produto.valor = dados.valor

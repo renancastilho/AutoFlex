@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..banco import SessaoLocal
 from ..modelos import Produto, MateriaPrima, ProdutoMateriaPrima
-from ..esquemas import AssociacaoCriar, AssociacaoEditar, AssociacaoResposta, ALLOWED_UNITS
+from ..esquemas import AssociacaoCriar, AssociacaoEditar, AssociacaoResposta
 from typing import List
 
 roteador = APIRouter(prefix="/associacoes", tags=["associacoes"])
@@ -30,16 +30,12 @@ def criar_associacao(produto_id: int, dados: AssociacaoCriar, sessao: Session = 
         materia = sessao.query(MateriaPrima).get(dados.materia_prima_id)
         if not materia:
             raise HTTPException(status_code=404, detail="Matéria-prima não encontrada")
-        if materia.unidade_medida not in ALLOWED_UNITS:
+        if materia.unidade_medida not in ("kg", "g", "un"):
             raise HTTPException(status_code=400, detail="Unidade da matéria-prima inválida")
-        if dados.unidade_medida not in ALLOWED_UNITS:
+        if dados.unidade_medida not in ("kg", "g", "un"):
             raise HTTPException(status_code=400, detail="Unidade inválida")
-        mass = {"kg", "g", "mg"}
-        vol = {"l", "ml"}
         if materia.unidade_medida == "un" and dados.unidade_medida != "un":
             raise HTTPException(status_code=400, detail="Unidade incompatível com a matéria-prima")
-        if (materia.unidade_medida in mass and dados.unidade_medida in vol) or (materia.unidade_medida in vol and dados.unidade_medida in mass):
-            raise HTTPException(status_code=400, detail="Unidades de massa e volume são incompatíveis")
         existente = sessao.query(ProdutoMateriaPrima).filter(
             ProdutoMateriaPrima.produto_id == produto_id,
             ProdutoMateriaPrima.materia_prima_id == dados.materia_prima_id
@@ -72,12 +68,8 @@ def editar_associacao(associacao_id: int, dados: AssociacaoEditar, sessao: Sessi
             assoc.quantidade_necessaria = dados.quantidade_necessaria
         if dados.unidade_medida is not None:
             materia = sessao.query(MateriaPrima).get(assoc.materia_prima_id)
-            mass = {"kg", "g", "mg"}
-            vol = {"l", "ml"}
             if materia.unidade_medida == "un" and dados.unidade_medida != "un":
                 raise HTTPException(status_code=400, detail="Unidade incompatível com a matéria-prima")
-            if (materia.unidade_medida in mass and dados.unidade_medida in vol) or (materia.unidade_medida in vol and dados.unidade_medida in mass):
-                raise HTTPException(status_code=400, detail="Unidades de massa e volume são incompatíveis")
             assoc.unidade_medida = dados.unidade_medida
         sessao.commit()
         sessao.refresh(assoc)

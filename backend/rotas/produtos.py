@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-import unicodedata
+from ..utils.texto import normalizar_nome
 from ..banco import SessaoLocal
 from ..modelos import Produto
 from ..esquemas import ProdutoCriar, ProdutoEditar, ProdutoResposta
@@ -23,13 +23,11 @@ def listar_produtos(sessao: Session = Depends(obter_sessao)):
 @roteador.post("", response_model=ProdutoResposta, status_code=201)
 def criar_produto(dados: ProdutoCriar, sessao: Session = Depends(obter_sessao)):
     try:
-        def norm(s):
-            return "".join(c for c in unicodedata.normalize("NFKD", s).lower() if not unicodedata.combining(c))
         nomes = [n for (n,) in sessao.query(Produto.nome).all()]
-        if any(norm(n) == norm(dados.nome) for n in nomes):
+        if any(normalizar_nome(n) == normalizar_nome(dados.nome) for n in nomes):
             raise HTTPException(status_code=400, detail="Nome já cadastrado")
         proximo = (sessao.query(func.max(Produto.codigo)).scalar() or 0) + 1
-        novo = Produto(codigo=proximo, nome=dados.nome, valor=dados.valor)
+        novo = Produto(codigo=proximo, nome=dados.nome, nome_normalizado=normalizar_nome(dados.nome), valor=dados.valor)
         sessao.add(novo)
         sessao.commit()
         sessao.refresh(novo)
@@ -50,17 +48,15 @@ def obter_produto(produto_id: int, sessao: Session = Depends(obter_sessao)):
 @roteador.put("/{produto_id}", response_model=ProdutoResposta)
 def editar_produto(produto_id: int, dados: ProdutoEditar, sessao: Session = Depends(obter_sessao)):
     try:
-        produto = sessao.query(Produto).get(produto_id)
+        produto = sessao.get(Produto, produto_id)
         if not produto:
             raise HTTPException(status_code=404, detail="Produto não encontrado")
         if dados.nome is not None:
-            import unicodedata as u
-            def norm(s):
-                return "".join(c for c in u.normalize("NFKD", s).lower() if not u.combining(c))
             nomes = [n for (n,) in sessao.query(Produto.nome).all() if n != produto.nome]
-            if any(norm(n) == norm(dados.nome) for n in nomes):
+            if any(normalizar_nome(n) == normalizar_nome(dados.nome) for n in nomes):
                 raise HTTPException(status_code=400, detail="Nome já cadastrado")
             produto.nome = dados.nome
+            produto.nome_normalizado = normalizar_nome(dados.nome)
         if dados.valor is not None:
             produto.valor = dados.valor
         sessao.commit()

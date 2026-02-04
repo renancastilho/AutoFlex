@@ -1,10 +1,11 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional
 ALLOWED_UNITS = {"un", "kg", "g", "mg", "l", "ml"}
+from decimal import Decimal, ROUND_HALF_UP
 
 class ProdutoCriar(BaseModel):
     nome: str = Field(..., min_length=1, max_length=200)
-    valor: float = Field(..., ge=0.0)
+    valor: Decimal = Field(..., ge=Decimal("0.00"))
     @field_validator("nome")
     @classmethod
     def validar_nome(cls, v: str):
@@ -13,12 +14,13 @@ class ProdutoCriar(BaseModel):
         return v
     @field_validator("valor")
     @classmethod
-    def validar_valor(cls, v: float):
-        return round(float(v), 2)
+    def validar_valor(cls, v):
+        d = Decimal(str(v))
+        return d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 class ProdutoEditar(BaseModel):
     nome: Optional[str] = None
-    valor: Optional[float] = Field(default=None, ge=0.0)
+    valor: Optional[Decimal] = Field(default=None, ge=Decimal("0.00"))
     @field_validator("nome")
     @classmethod
     def validar_nome(cls, v: Optional[str]):
@@ -27,20 +29,23 @@ class ProdutoEditar(BaseModel):
         return v
     @field_validator("valor")
     @classmethod
-    def validar_valor(cls, v: Optional[float]):
-        return None if v is None else round(float(v), 2)
+    def validar_valor(cls, v: Optional[Decimal]):
+        if v is None:
+            return v
+        d = Decimal(str(v))
+        return d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 class ProdutoResposta(BaseModel):
     id: int
     codigo: int
     nome: str
-    valor: float
+    valor: Decimal
     class Config:
         from_attributes = True
 
 class MateriaPrimaCriar(BaseModel):
     nome: str = Field(..., min_length=1, max_length=200)
-    quantidade_estoque: float = Field(..., ge=0.0)
+    quantidade_estoque: Decimal = Field(..., ge=Decimal("0.00"))
     unidade_medida: str
     @field_validator("nome")
     @classmethod
@@ -50,8 +55,9 @@ class MateriaPrimaCriar(BaseModel):
         return v
     @field_validator("quantidade_estoque")
     @classmethod
-    def validar_quantidade(cls, v: float):
-        return round(float(v), 2)
+    def validar_quantidade(cls, v):
+        d = Decimal(str(v))
+        return d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     @field_validator("unidade_medida")
     @classmethod
     def validar_unidade(cls, v: str):
@@ -62,7 +68,7 @@ class MateriaPrimaCriar(BaseModel):
 
 class MateriaPrimaEditar(BaseModel):
     nome: Optional[str] = None
-    quantidade_estoque: Optional[float] = Field(default=None, ge=0.0)
+    quantidade_estoque: Optional[Decimal] = Field(default=None, ge=Decimal("0.00"))
     unidade_medida: Optional[str] = None
     @field_validator("nome")
     @classmethod
@@ -72,8 +78,11 @@ class MateriaPrimaEditar(BaseModel):
         return v
     @field_validator("quantidade_estoque")
     @classmethod
-    def validar_quantidade(cls, v: Optional[float]):
-        return None if v is None else round(float(v), 2)
+    def validar_quantidade(cls, v: Optional[Decimal]):
+        if v is None:
+            return v
+        d = Decimal(str(v))
+        return d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     @field_validator("unidade_medida")
     @classmethod
     def validar_unidade(cls, v: Optional[str]):
@@ -88,19 +97,20 @@ class MateriaPrimaResposta(BaseModel):
     id: int
     codigo: int
     nome: str
-    quantidade_estoque: float
+    quantidade_estoque: Decimal
     unidade_medida: str
     class Config:
         from_attributes = True
 
 class AssociacaoCriar(BaseModel):
     materia_prima_id: int
-    quantidade_necessaria: float = Field(..., gt=0.0)
+    quantidade_necessaria: Decimal = Field(..., gt=Decimal("0.00"))
     unidade_medida: str
     @field_validator("quantidade_necessaria")
     @classmethod
-    def validar_quantidade(cls, v: float):
-        return round(float(v), 2)
+    def validar_quantidade(cls, v):
+        d = Decimal(str(v))
+        return d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     @field_validator("unidade_medida")
     @classmethod
     def validar_unidade(cls, v: str):
@@ -110,12 +120,15 @@ class AssociacaoCriar(BaseModel):
         return uv
 
 class AssociacaoEditar(BaseModel):
-    quantidade_necessaria: Optional[float] = Field(default=None, gt=0.0)
+    quantidade_necessaria: Optional[Decimal] = Field(default=None, gt=Decimal("0.00"))
     unidade_medida: Optional[str] = None
     @field_validator("quantidade_necessaria")
     @classmethod
-    def validar_quantidade(cls, v: Optional[float]):
-        return None if v is None else round(float(v), 2)
+    def validar_quantidade(cls, v: Optional[Decimal]):
+        if v is None:
+            return v
+        d = Decimal(str(v))
+        return d.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     @field_validator("unidade_medida")
     @classmethod
     def validar_unidade(cls, v: Optional[str]):
@@ -130,7 +143,7 @@ class AssociacaoResposta(BaseModel):
     id: int
     produto_id: int
     materia_prima_id: int
-    quantidade_necessaria: float
+    quantidade_necessaria: Decimal
     unidade_medida: str
     class Config:
         from_attributes = True
@@ -140,9 +153,9 @@ class ProducaoItem(BaseModel):
     codigo: int
     nome: str
     quantidade: int
-    valor_unitario: float
-    valor_total_item: float
+    valor_unitario: Decimal
+    valor_total_item: Decimal
 
 class ProducaoResposta(BaseModel):
     itens: List[ProducaoItem]
-    valor_total: float
+    valor_total: Decimal

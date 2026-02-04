@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-import unicodedata
+from ..utils.texto import normalizar_nome
 from ..banco import SessaoLocal
 from ..modelos import MateriaPrima
 from ..esquemas import MateriaPrimaCriar, MateriaPrimaEditar, MateriaPrimaResposta
@@ -23,13 +23,11 @@ def listar_materias(sessao: Session = Depends(obter_sessao)):
 @roteador.post("", response_model=MateriaPrimaResposta, status_code=201)
 def criar_materia(dados: MateriaPrimaCriar, sessao: Session = Depends(obter_sessao)):
     try:
-        def norm(s):
-            return "".join(c for c in unicodedata.normalize("NFKD", s).lower() if not unicodedata.combining(c))
         nomes = [n for (n,) in sessao.query(MateriaPrima.nome).all()]
-        if any(norm(n) == norm(dados.nome) for n in nomes):
+        if any(normalizar_nome(n) == normalizar_nome(dados.nome) for n in nomes):
             raise HTTPException(status_code=400, detail="Nome já cadastrado")
         proximo = (sessao.query(func.max(MateriaPrima.codigo)).scalar() or 0) + 1
-        nova = MateriaPrima(codigo=proximo, nome=dados.nome, quantidade_estoque=dados.quantidade_estoque, unidade_medida=dados.unidade_medida)
+        nova = MateriaPrima(codigo=proximo, nome=dados.nome, nome_normalizado=normalizar_nome(dados.nome), quantidade_estoque=dados.quantidade_estoque, unidade_medida=dados.unidade_medida)
         sessao.add(nova)
         sessao.commit()
         sessao.refresh(nova)
@@ -42,7 +40,7 @@ def criar_materia(dados: MateriaPrimaCriar, sessao: Session = Depends(obter_sess
 
 @roteador.get("/{materia_id}", response_model=MateriaPrimaResposta)
 def obter_materia(materia_id: int, sessao: Session = Depends(obter_sessao)):
-    materia = sessao.query(MateriaPrima).get(materia_id)
+    materia = sessao.get(MateriaPrima, materia_id)
     if not materia:
         raise HTTPException(status_code=404, detail="Matéria-prima não encontrada")
     return materia
@@ -50,17 +48,15 @@ def obter_materia(materia_id: int, sessao: Session = Depends(obter_sessao)):
 @roteador.put("/{materia_id}", response_model=MateriaPrimaResposta)
 def editar_materia(materia_id: int, dados: MateriaPrimaEditar, sessao: Session = Depends(obter_sessao)):
     try:
-        materia = sessao.query(MateriaPrima).get(materia_id)
+        materia = sessao.get(MateriaPrima, materia_id)
         if not materia:
             raise HTTPException(status_code=404, detail="Matéria-prima não encontrada")
         if dados.nome is not None:
-            import unicodedata as u
-            def norm(s):
-                return "".join(c for c in u.normalize("NFKD", s).lower() if not u.combining(c))
             nomes = [n for (n,) in sessao.query(MateriaPrima.nome).all() if n != materia.nome]
-            if any(norm(n) == norm(dados.nome) for n in nomes):
+            if any(normalizar_nome(n) == normalizar_nome(dados.nome) for n in nomes):
                 raise HTTPException(status_code=400, detail="Nome já cadastrado")
             materia.nome = dados.nome
+            materia.nome_normalizado = normalizar_nome(dados.nome)
         if dados.quantidade_estoque is not None:
             materia.quantidade_estoque = dados.quantidade_estoque
         if dados.unidade_medida is not None:
